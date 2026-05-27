@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRUD Contactos Completo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); padding: 30px; }
+        h1 { text-align: center; color: #333; margin-bottom: 5px; font-size: 28px; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 25px; font-size: 14px; }
+        .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .toolbar .btn-add { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 12px 24px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; transition: 0.3s; font-weight: 600; }
+        .toolbar .btn-add:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102,126,234,0.4); }
+        .toolbar input { flex: 1; min-width: 200px; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; transition: 0.3s; }
+        .toolbar input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+        .stats { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat-card { flex: 1; min-width: 120px; background: #f8f9ff; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #e8e8ff; }
+        .stat-card .num { font-size: 24px; font-weight: 700; color: #667eea; }
+        .stat-card .label { font-size: 12px; color: #888; margin-top: 3px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8f9ff; color: #555; font-weight: 600; padding: 14px 12px; text-align: left; border-bottom: 2px solid #e8e8ff; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 12px; border-bottom: 1px solid #f0f0f0; }
+        tr:hover td { background: #fafbff; }
+        .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+        .btn { padding: 7px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; transition: 0.2s; font-weight: 500; }
+        .btn:hover { transform: translateY(-1px); }
+        .btn-view { background: #e3f2fd; color: #1976d2; }
+        .btn-view:hover { background: #bbdefb; }
+        .btn-edit { background: #fff3e0; color: #f57c00; }
+        .btn-edit:hover { background: #ffe0b2; }
+        .btn-delete { background: #fbe9e7; color: #d32f2f; }
+        .btn-delete:hover { background: #ffccbc; }
+        .empty-msg { text-align: center; padding: 50px 20px; color: #999; }
+        .empty-msg .icon { font-size: 48px; margin-bottom: 10px; }
+        .empty-msg p { font-size: 16px; }
+
+        /* MODAL */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(4px); }
+        .modal-overlay.active { display: flex; }
+        .modal { background: white; padding: 30px; border-radius: 16px; width: 450px; max-width: 95%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: modalIn 0.3s ease; }
+        @keyframes modalIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal h2 { margin-bottom: 20px; color: #333; font-size: 22px; }
+        .modal .form-group { margin-bottom: 16px; }
+        .modal label { display: block; margin-bottom: 6px; font-weight: 600; color: #555; font-size: 14px; }
+        .modal input, .modal select { width: 100%; padding: 11px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; transition: 0.3s; }
+        .modal input:focus, .modal select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+        .modal .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px; }
+        .btn-save { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 11px 28px; font-size: 15px; }
+        .btn-save:hover { box-shadow: 0 5px 15px rgba(102,126,234,0.4); }
+        .btn-cancel { background: #f5f5f5; color: #666; padding: 11px 28px; font-size: 15px; }
+        .btn-cancel:hover { background: #e0e0e0; }
+
+        /* VIEW MODAL */
+        .view-grid { display: grid; gap: 12px; }
+        .view-grid .field { display: flex; padding: 12px 16px; background: #f8f9ff; border-radius: 8px; }
+        .view-grid .field .f-label { font-weight: 600; color: #888; min-width: 80px; font-size: 13px; }
+        .view-grid .field .f-value { color: #333; font-size: 15px; }
+
+        /* TOAST */
+        .toast { position: fixed; bottom: 30px; right: 30px; background: #333; color: white; padding: 14px 24px; border-radius: 10px; font-size: 14px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); transform: translateY(100px); opacity: 0; transition: 0.4s; z-index: 2000; }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { background: #2e7d32; }
+        .toast.error { background: #c62828; }
+        .toast.info { background: #1565c0; }
+
+        /* RESPONSIVE */
+        @media (max-width: 600px) {
+            .container { padding: 15px; }
+            .toolbar { flex-direction: column; }
+            .toolbar .btn-add { width: 100%; }
+            .actions .btn { font-size: 12px; padding: 6px 10px; }
+            th, td { padding: 8px 6px; font-size: 13px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📇 Gestión de Contactos</h1>
+    <p class="subtitle">CRUD completo con almacenamiento local</p>
+
+    <div class="toolbar">
+        <button class="btn-add" onclick="abrirModalCrear()">➕ Nuevo Contacto</button>
+        <input type="text" id="searchInput" placeholder="🔍 Buscar por nombre, teléfono o email..." oninput="renderizar()">
+    </div>
+
+    <div class="stats" id="statsContainer"></div>
+    <div id="tableContainer"></div>
+</div>
+
+<!-- MODAL CREAR/EDITAR -->
+<div class="modal-overlay" id="modalForm">
+    <div class="modal">
+        <h2 id="modalTitle">Nuevo Contacto</h2>
+        <div class="form-group">
+            <label>Nombre completo</label>
+            <input type="text" id="inputNombre" placeholder="Ej: Juan Pérez">
+        </div>
+        <div class="form-group">
+            <label>Teléfono</label>
+            <input type="text" id="inputTelefono" placeholder="Ej: 999-888-7766">
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="inputEmail" placeholder="Ej: juan@email.com">
+        </div>
+        <div class="form-group">
+            <label>Categoría</label>
+            <select id="inputCategoria">
+                <option value="Personal">Personal</option>
+                <option value="Trabajo">Trabajo</option>
+                <option value="Familia">Familia</option>
+                <option value="Amigos">Amigos</option>
+            </select>
+        </div>
+        <div class="modal-buttons">
+            <button class="btn btn-cancel" onclick="cerrarModal('modalForm')">Cancelar</button>
+            <button class="btn btn-save" onclick="guardarContacto()">💾 Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL VER -->
+<div class="modal-overlay" id="modalView">
+    <div class="modal">
+        <h2>👤 Detalle del Contacto</h2>
+        <div class="view-grid" id="viewContent"></div>
+        <div class="modal-buttons">
+            <button class="btn btn-cancel" onclick="cerrarModal('modalView')">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+    // ========== DATOS INICIALES (10 contactos) ==========
+    const DATOS_INICIALES = [
+        { id: 1, nombre: 'María García', telefono: '999-111-2233', email: 'maria@email.com', categoria: 'Personal' },
+        { id: 2, nombre: 'Carlos López', telefono: '999-222-3344', email: 'carlos@email.com', categoria: 'Trabajo' },
+        { id: 3, nombre: 'Ana Martínez', telefono: '999-333-4455', email: 'ana@email.com', categoria: 'Familia' },
+        { id: 4, nombre: 'Pedro Rodríguez', telefono: '999-444-5566', email: 'pedro@email.com', categoria: 'Trabajo' },
+        { id: 5, nombre: 'Lucía Fernández', telefono: '999-555-6677', email: 'lucia@email.com', categoria: 'Amigos' },
+        { id: 6, nombre: 'Jorge Sánchez', telefono: '999-666-7788', email: 'jorge@email.com', categoria: 'Personal' },
+        { id: 7, nombre: 'Sofía Ramírez', telefono: '999-777-8899', email: 'sofia@email.com', categoria: 'Familia' },
+        { id: 8, nombre: 'Diego Torres', telefono: '999-888-9900', email: 'diego@email.com', categoria: 'Trabajo' },
+        { id: 9, nombre: 'Valentina Díaz', telefono: '999-999-0011', email: 'valentina@email.com', categoria: 'Amigos' },
+        { id: 10, nombre: 'Andrés Morales', telefono: '999-000-1122', email: 'andres@email.com', categoria: 'Personal' }
+    ];
+
+    // ========== LOCALSTORAGE ==========
+    function obtenerContactos() {
+        const data = localStorage.getItem('contactos');
+        if (!data) {
+            localStorage.setItem('contactos', JSON.stringify(DATOS_INICIALES));
+            return [...DATOS_INICIALES];
+        }
+        return JSON.parse(data);
+    }
+
+    function guardarContactos(contactos) {
+        localStorage.setItem('contactos', JSON.stringify(contactos));
+    }
+
+    function obtenerNextId() {
+        const id = parseInt(localStorage.getItem('nextId') || '11');
+        return id;
+    }
+
+    function incrementarNextId() {
+        const id = obtenerNextId();
+        localStorage.setItem('nextId', (id + 1).toString());
+        return id;
+    }
+
+    // ========== TOAST ==========
+    function mostrarToast(mensaje, tipo = 'info') {
+        const t = document.getElementById('toast');
+        t.textContent = mensaje;
+        t.className = 'toast ' + tipo;
+        setTimeout(() => t.classList.add('show'), 10);
+        setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    // ========== MODALES ==========
+    function abrirModal(id) { document.getElementById(id).classList.add('active'); }
+    function cerrarModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    // Cerrar modal al hacer clic fuera
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+        el.addEventListener('click', function(e) {
+            if (e.target === this) this.classList.remove('active');
+        });
+    });
+
+    // ========== RENDERIZAR ==========
+    function renderizar() {
+        const contactos = obtenerContactos();
+        const search = document.getElementById('searchInput').value.toLowerCase().trim();
+
+        let filtrados = contactos;
+        if (search) {
+            filtrados = contactos.filter(c =>
+                c.nombre.toLowerCase().includes(search) ||
+                c.telefono.includes(search) ||
+                c.email.toLowerCase().includes(search) ||
+                c.categoria.toLowerCase().includes(search)
+            );
+        }
+
+        // Stats
+        const total = contactos.length;
+        const categorias = {};
+        contactos.forEach(c => { categorias[c.categoria] = (categorias[c.categoria] || 0) + 1; });
+        let statsHTML = `<div class="stat-card"><div class="num">${total}</div><div class="label">Total Contactos</div></div>`;
+        for (const [cat, count] of Object.entries(categorias)) {
+            const emojis = { Personal: '👤', Trabajo: '💼', Familia: '👨‍👩‍👧‍👦', Amigos: '🤝' };
+            statsHTML += `<div class="stat-card"><div class="num">${count}</div><div class="label">${emojis[cat] || ''} ${cat}</div></div>`;
+        }
+        document.getElementById('statsContainer').innerHTML = statsHTML;
+
+        // Tabla
+        const container = document.getElementById('tableContainer');
+        if (filtrados.length === 0) {
+            container.innerHTML = `<div class="empty-msg"><div class="icon">📭</div><p>${search ? 'No se encontraron contactos con ese criterio' : 'No hay contactos. ¡Crea uno nuevo!'}</p></div>`;
+            return;
+        }
+
+        let html = `<table>
+            <thead><tr>
+                <th>#</th>
+                <th>Nombre</th>
+                <th>Teléfono</th>
+                <th>Email</th>
+                <th>Categoría</th>
+                <th>Acciones</th>
+            </tr></thead>
+            <tbody>`;
+        filtrados.forEach((c, i) => {
+            const emojiCat = { Personal: '👤', Trabajo: '💼', Familia: '👨‍👩‍👧‍👦', Amigos: '🤝' };
+            html += `<tr>
+                <td style="color:#999;font-size:12px;">${i + 1}</td>
+                <td><strong>${c.nombre}</strong></td>
+                <td>${c.telefono}</td>
+                <td>${c.email}</td>
+                <td>${emojiCat[c.categoria] || ''} ${c.categoria}</td>
+                <td class="actions">
+                    <button class="btn btn-view" onclick="verContacto(${c.id})">👁 Ver</button>
+                    <button class="btn btn-edit" onclick="abrirEditar(${c.id})">✏ Editar</button>
+                    <button class="btn btn-delete" onclick="eliminarContacto(${c.id})">🗑 Eliminar</button>
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    // ========== CREAR ==========
+    function abrirModalCrear() {
+        window.editingId = null;
+        document.getElementById('modalTitle').textContent = 'Nuevo Contacto';
+        document.getElementById('inputNombre').value = '';
+        document.getElementById('inputTelefono').value = '';
+        document.getElementById('inputEmail').value = '';
+        document.getElementById('inputCategoria').value = 'Personal';
+        abrirModal('modalForm');
+    }
+
+    // ========== EDITAR ==========
+    function abrirEditar(id) {
+        const contactos = obtenerContactos();
+        const c = contactos.find(x => x.id === id);
+        if (!c) return;
+        window.editingId = id;
+        document.getElementById('modalTitle').textContent = 'Editar Contacto';
+        document.getElementById('inputNombre').value = c.nombre;
+        document.getElementById('inputTelefono').value = c.telefono;
+        document.getElementById('inputEmail').value = c.email;
+        document.getElementById('inputCategoria').value = c.categoria;
+        abrirModal('modalForm');
+    }
+
+    // ========== GUARDAR ==========
+    function guardarContacto() {
+        const nombre = document.getElementById('inputNombre').value.trim();
+        const telefono = document.getElementById('inputTelefono').value.trim();
+        const email = document.getElementById('inputEmail').value.trim();
+        const categoria = document.getElementById('inputCategoria').value;
+
+        // Validaciones
+        if (!nombre) { mostrarToast('El nombre es obligatorio', 'error'); return; }
+        if (!telefono) { mostrarToast('El teléfono es obligatorio', 'error'); return; }
+        if (!email) { mostrarToast('El email es obligatorio', 'error'); return; }
+        if (!email.includes('@') || !email.includes('.')) { mostrarToast('Email inválido', 'error'); return; }
+
+        let contactos = obtenerContactos();
+
+        if (window.editingId === null) {
+            // Crear
+            const nuevo = {
+                id: incrementarNextId(),
+                nombre,
+                telefono,
+                email,
+                categoria
+            };
+            contactos.push(nuevo);
+            guardarContactos(contactos);
+            mostrarToast(`✅ Contacto "${nombre}" creado exitosamente`, 'success');
+        } else {
+            // Actualizar
+            const idx = contactos.findIndex(c => c.id === window.editingId);
+            if (idx !== -1) {
+                contactos[idx] = { id: window.editingId, nombre, telefono, email, categoria };
+                guardarContactos(contactos);
+                mostrarToast(`✅ Contacto "${nombre}" actualizado`, 'success');
+            }
+            window.editingId = null;
+        }
+
+        cerrarModal('modalForm');
+        renderizar();
+    }
+
+    // ========== ELIMINAR ==========
+    function eliminarContacto(id) {
+        const contactos = obtenerContactos();
+        const c = contactos.find(x => x.id === id);
+        if (!c) return;
+
+        // Modal de confirmación personalizado
+        if (!confirm(`¿Estás seguro de eliminar a "${c.nombre}"?\n\nEsta acción no se puede deshacer.`)) return;
+
+        const nuevos = contactos.filter(x => x.id !== id);
+        guardarContactos(nuevos);
+        mostrarToast(`🗑 Contacto "${c.nombre}" eliminado`, 'info');
+        renderizar();
+    }
+
+    // ========== VER ==========
+    function verContacto(id) {
+        const contactos = obtenerContactos();
+        const c = contactos.find(x => x.id === id);
+        if (!c) return;
+
+        const emojis = { Personal: '👤', Trabajo: '💼', Familia: '👨‍👩‍👧‍👦', Amigos: '🤝' };
+        document.getElementById('viewContent').innerHTML = `
+            <div class="field"><span class="f-label">ID:</span><span class="f-value">${c.id}</span></div>
+            <div class="field"><span class="f-label">Nombre:</span><span class="f-value">${c.nombre}</span></div>
+            <div class="field"><span class="f-label">Teléfono:</span><span class="f-value">${c.telefono}</span></div>
+            <div class="field"><span class="f-label">Email:</span><span class="f-value">${c.email}</span></div>
+            <div class="field"><span class="f-label">Categoría:</span><span class="f-value">${emojis[c.categoria] || ''} ${c.categoria}</span></div>
+        `;
+        abrirModal('modalView');
+    }
+
+    // ========== TECLA ESC PARA CERRAR MODALES ==========
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-overlay.active').forEach(el => el.classList.remove('active'));
+        }
+    });
+
+    // ========== INICIALIZAR ==========
+    renderizar();
+</script>
+
+</body>
+</html>
