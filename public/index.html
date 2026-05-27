@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contactos CRUD</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: #f0f2f5; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 25px; }
+        h1 { text-align: center; color: #1a73e8; margin-bottom: 20px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: 0.2s; }
+        .btn:hover { opacity: 0.85; }
+        .btn-add { background: #1a73e8; color: white; padding: 10px 20px; font-size: 16px; margin-bottom: 15px; }
+        .btn-edit { background: #ffc107; color: #333; }
+        .btn-delete { background: #dc3545; color: white; }
+        .btn-view { background: #17a2b8; color: white; }
+        .btn-save { background: #28a745; color: white; }
+        .btn-cancel { background: #6c757d; color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #1a73e8; color: white; }
+        tr:hover { background: #f1f1f1; }
+        .actions { display: flex; gap: 5px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 400px; max-width: 90%; }
+        .modal-content h2 { margin-bottom: 15px; color: #333; }
+        .modal-content label { display: block; margin: 10px 0 5px; font-weight: 600; color: #555; }
+        .modal-content input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .modal-content input:focus { outline: none; border-color: #1a73e8; }
+        .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .view-info p { margin: 8px 0; font-size: 15px; }
+        .view-info strong { color: #555; }
+        .search-box { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; margin-bottom: 15px; }
+        .search-box:focus { outline: none; border-color: #1a73e8; }
+        .empty-msg { text-align: center; color: #999; padding: 30px; font-size: 16px; }
+        .loading { text-align: center; padding: 30px; color: #999; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📇 Mis Contactos</h1>
+        <button class="btn btn-add" onclick="openAddModal()">+ Nuevo Contacto</button>
+        <input type="text" class="search-box" id="searchInput" placeholder="🔍 Buscar por nombre, teléfono o email..." oninput="cargarContactos()">
+        <div id="tableContainer"><div class="loading">Cargando...</div></div>
+    </div>
+
+    <div class="modal" id="formModal">
+        <div class="modal-content">
+            <h2 id="formTitle">Nuevo Contacto</h2>
+            <label>Nombre</label>
+            <input type="text" id="inputNombre" placeholder="Nombre completo">
+            <label>Teléfono</label>
+            <input type="text" id="inputTelefono" placeholder="Teléfono">
+            <label>Email</label>
+            <input type="email" id="inputEmail" placeholder="Email">
+            <div class="modal-buttons">
+                <button class="btn btn-cancel" onclick="closeModal('formModal')">Cancelar</button>
+                <button class="btn btn-save" onclick="guardarContacto()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="viewModal">
+        <div class="modal-content">
+            <h2>👤 Detalle del Contacto</h2>
+            <div class="view-info" id="viewInfo"></div>
+            <div class="modal-buttons">
+                <button class="btn btn-cancel" onclick="closeModal('viewModal')">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let editingId = null;
+
+        // ========== API ==========
+        async function api(path, options = {}) {
+            const res = await fetch(path, {
+                headers: { 'Content-Type': 'application/json' },
+                ...options
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: 'Error de conexión' }));
+                throw new Error(err.error || 'Error desconocido');
+            }
+            return res.json();
+        }
+
+        // ========== CARGAR CONTACTOS ==========
+        async function cargarContactos() {
+            const search = document.getElementById('searchInput').value;
+            try {
+                const url = search ? `/api/contactos?search=${encodeURIComponent(search)}` : '/api/contactos';
+                const contactos = await api(url);
+                renderTable(contactos);
+            } catch (e) {
+                document.getElementById('tableContainer').innerHTML = `<div class="empty-msg">Error: ${e.message}</div>`;
+            }
+        }
+
+        function renderTable(contactos) {
+            const container = document.getElementById('tableContainer');
+            if (contactos.length === 0) {
+                container.innerHTML = '<div class="empty-msg">No se encontraron contactos</div>';
+                return;
+            }
+            let html = `<table>
+                <thead><tr><th>Nombre</th><th>Teléfono</th><th>Email</th><th>Acciones</th></tr></thead>
+                <tbody>`;
+            contactos.forEach(c => {
+                html += `<tr>
+                    <td>${c.nombre}</td>
+                    <td>${c.telefono}</td>
+                    <td>${c.email}</td>
+                    <td class="actions">
+                        <button class="btn btn-view" onclick="verContacto(${c.id})">👁 Ver</button>
+                        <button class="btn btn-edit" onclick="abrirEditar(${c.id})">✏ Editar</button>
+                        <button class="btn btn-delete" onclick="eliminarContacto(${c.id})">🗑 Eliminar</button>
+                    </td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        // ========== MODALES ==========
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        // ========== CREAR ==========
+        function openAddModal() {
+            editingId = null;
+            document.getElementById('formTitle').textContent = 'Nuevo Contacto';
+            document.getElementById('inputNombre').value = '';
+            document.getElementById('inputTelefono').value = '';
+            document.getElementById('inputEmail').value = '';
+            openModal('formModal');
+        }
+
+        // ========== EDITAR ==========
+        async function abrirEditar(id) {
+            try {
+                const c = await api(`/api/contactos/${id}`);
+                editingId = id;
+                document.getElementById('formTitle').textContent = 'Editar Contacto';
+                document.getElementById('inputNombre').value = c.nombre;
+                document.getElementById('inputTelefono').value = c.telefono;
+                document.getElementById('inputEmail').value = c.email;
+                openModal('formModal');
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        // ========== GUARDAR ==========
+        async function guardarContacto() {
+            const nombre = document.getElementById('inputNombre').value.trim();
+            const telefono = document.getElementById('inputTelefono').value.trim();
+            const email = document.getElementById('inputEmail').value.trim();
+
+            if (!nombre || !telefono || !email) {
+                alert('Todos los campos son obligatorios');
+                return;
+            }
+
+            try {
+                if (editingId === null) {
+                    await api('/api/contactos', {
+                        method: 'POST',
+                        body: JSON.stringify({ nombre, telefono, email })
+                    });
+                } else {
+                    await api(`/api/contactos/${editingId}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ nombre, telefono, email })
+                    });
+                    editingId = null;
+                }
+                closeModal('formModal');
+                cargarContactos();
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        // ========== ELIMINAR ==========
+        async function eliminarContacto(id) {
+            if (!confirm('¿Estás seguro de eliminar este contacto?')) return;
+            try {
+                await api(`/api/contactos/${id}`, { method: 'DELETE' });
+                cargarContactos();
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        // ========== VER ==========
+        async function verContacto(id) {
+            try {
+                const c = await api(`/api/contactos/${id}`);
+                document.getElementById('viewInfo').innerHTML = `
+                    <p><strong>ID:</strong> ${c.id}</p>
+                    <p><strong>Nombre:</strong> ${c.nombre}</p>
+                    <p><strong>Teléfono:</strong> ${c.telefono}</p>
+                    <p><strong>Email:</strong> ${c.email}</p>
+                `;
+                openModal('viewModal');
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        // ========== CERRAR MODAL CLIC FUERA ==========
+        window.onclick = function(e) {
+            if (e.target.classList.contains('modal')) e.target.classList.remove('active');
+        };
+
+        // ========== INICIAR ==========
+        cargarContactos();
+    </script>
+</body>
+</html>
